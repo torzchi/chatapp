@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat App</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="usernameContainer">
+  <input type="text" id="usernameInput" placeholder="Enter your name..." />
+  <button onclick="setUsername()">Start Chat</button>
+</div>
+
+<div id="chatContainer" style="display: none;">
+  <div id="chatArea"></div>
+  <input type="text" id="messageInput" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script>
+    let stompClient = null;
+    let username = null;
+
+    function setUsername() {
+        username = document.getElementById("usernameInput").value.trim();
+        if (username) {
+            document.getElementById("usernameContainer").style.display = "none";
+            document.getElementById("chatContainer").style.display = "block";
+            connect();
+        } else {
+            alert("Please enter a username.");
+        }
+    }
+
+    function connect() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+
+        // Disable STOMP debug logging
+        stompClient.debug = null;
+
+        stompClient.connect({},
+            (frame) => {
+                console.log("Connected to WebSocket");
+
+                // Subscribe to the public topic
+                stompClient.subscribe('/topic/public', function(messageOutput) {
+                    console.log("Raw message received:", messageOutput);
+                    const messageBody = JSON.parse(messageOutput.body);
+                    console.log("Parsed message:", messageBody);
+                    displayMessage(messageBody);
+                });
+
+                // Send join message
+                stompClient.send("/app/chat.addUser", {}, JSON.stringify({
+                    sender: username,
+                    content: "has joined the chat",
+                    type: 'JOIN'
+                }));
+            },
+            function(error) {
+                console.log("STOMP error:", error);
+                setTimeout(connect, 5000);
+            }
+        );
+    }
+
+    function displayMessage(message) {
+        console.log("Displaying message:", message);
+        const chatArea = document.getElementById("chatArea");
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${message.sender === username ? 'user-message' : 'other-message'}`;
+
+        let content = message.content;
+        if (message.type === 'JOIN') {
+            content = `${message.sender} has joined the chat`;
+        } else if (message.type === 'LEAVE') {
+            content = `${message.sender} has left the chat`;
+        }
+
+        messageDiv.innerHTML = `
+            <strong>${message.sender}</strong>
+            <p>${content}</p>
+        `;
+
+        console.log("Message div created:", messageDiv);
+        chatArea.appendChild(messageDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const messageContent = messageInput.value.trim();
+
+        if (messageContent && stompClient) {
+            console.log("Attempting to send message:", messageContent);
+
+            const chatMessage = {
+                sender: username,
+                content: messageContent,
+                type: 'CHAT'
+            };
+
+            // Send to the correct endpoint
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+            console.log("Message sent to server:", chatMessage);
+
+            messageInput.value = '';
+        }
+    }
+
+    // Enter key handlers
+    document.getElementById("messageInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    document.getElementById("usernameInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            setUsername();
+        }
+    });
+
+    // Cleanup on window close
+    window.addEventListener('beforeunload', () => {
+        if (stompClient && stompClient.connected) {
+            const leaveMessage = {
+                sender: username,
+                content: "has left the chat",
+                type: 'LEAVE'
+            };
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(leaveMessage));
+            stompClient.disconnect();
+        }
+    });
+</script>
+</body>
+</html>
