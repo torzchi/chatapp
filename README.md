@@ -1,20 +1,56 @@
-# chatapp
+# Chat Application
 
-must:
-```
-1-1 conversations
-group chats
-public discutions
+Aplicatie de mesagerie in real-time implementata folosing Websockets-uri ca mod principal de comunicare si framework-ul SpringBoot impreuna cu toate facilitatile acestuia. 
+
+## Noscow List
+
+### Must
+- Conversatii 1-1
+- Group chats
+- Discutie generala/publica
+
+### Should
+- Suport pentru trimitere poze/fisiere/documente
+- Afisarea utilizatorilor conectati
+
+### Could
+- Sistem de reactionare la mesaje
+- Apeluri video/audio
+
+### Won't
+- Mesaje vocale
+- Editare mesaje dupa trimitere
+- Avatare/customizare profile utilizatori
+
+## Tech Stack
+- Spring Boot
+- Spring WebSocket 
+- Spring Data JPA
+- Spring Security
+- MySQL Database
+- Maven Build Tool
+
+## Cerinte functionare
+- Java 17+
+- MySQL 8+
+- Maven 3.8+
+- Un mediu de rulare pentru server (Tomcat)
+
+## Arhitectura Proiect
+
+```plaintext
+Client <-> WebSocket <-> Server <-> Database
 ```
 
-should:
-```
-support sending media files (poze, docs)
-list of connected users
-```
+## API Endpoints
+| Endpoint                 | Metodă  | Descriere                                   |
+|--------------------------|---------|---------------------------------------------|
+| `/register`              | `POST`  | Înregistrează un utilizator nou.            |
+| `/login`                 | `POST`  | Autentifică utilizatorul și returnează JWT. |
+| `/chat.addUser`         | `GET`   | Adauga/Marcheaza utilizator in chatroom.    |
+| `/chat.sendMessage`     | `GET`   | Trimite un mesaj în chat.                   |
 
-daca mai am timp:
+## User Flow
 ```
-ability to react to messages
-video calls
+ Pagina Principala -> Creeare cont -> Log in -> Redirectionare chat public -> Selectie conversatie -> Trimitere mesaje
 ```
