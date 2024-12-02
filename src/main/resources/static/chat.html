@@ -37,11 +37,27 @@
         }
     }
 
+    // Fetch the 'CHAT' messages from the backend when the chat initializes
+    async function fetchChatMessages() {
+        try {
+            const response = await fetch('/api/messages/chat');
+            if (!response.ok) {
+                throw new Error('Failed to fetch messages');
+            }
+            const messages = await response.json();
+            messages.forEach(message => displayMessage(message));
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
+    }
+
     async function initChat() {
         username = await fetchUsername();
         if (username) {
             document.getElementById("loadingContainer").style.display = "none";
             document.getElementById("chatContainer").style.display = "block";
+
+            await fetchChatMessages(); // Fetch the previous 'CHAT' type messages
             connect();
         }
     }
@@ -110,7 +126,10 @@
                 type: 'CHAT'
             };
 
+            // Send the message to the backend and the WebSocket server
             stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+
+            // Reset input after sending message
             messageInput.value = '';
         }
     }
