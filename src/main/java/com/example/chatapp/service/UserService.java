@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class UserService {
 
@@ -26,6 +28,12 @@ public class UserService {
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password)); // Hash the password
         userRepository.save(user);
+    }
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+    public Long getUserId(String username) {
+        return userRepository.findIdByUsername(username);
     }
 }
 

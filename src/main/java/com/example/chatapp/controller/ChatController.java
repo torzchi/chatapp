@@ -1,58 +1,120 @@
 package com.example.chatapp.controller;
 
+import com.example.chatapp.model.Conversation;
 import com.example.chatapp.model.Message;
+import com.example.chatapp.model.User;
+import com.example.chatapp.repository.ConversationRepository;
 import com.example.chatapp.repository.MessageRepository;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Controller;
-import java.util.List;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.example.chatapp.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-@Controller
+import java.util.List;
+import java.util.Optional;
+import java.util.logging.Logger;
+
+@RestController
+@RequestMapping("/api")
 public class ChatController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ConversationRepository conversationRepository;
+    private final UserRepository userRepository;
     private final MessageRepository messageRepository;
 
-    public ChatController(SimpMessagingTemplate messagingTemplate, MessageRepository messageRepository) {
-        this.messagingTemplate = messagingTemplate;
+    @Autowired
+    public ChatController(ConversationRepository conversationRepository,
+                          UserRepository userRepository,
+                          MessageRepository messageRepository) {
+        this.conversationRepository = conversationRepository;
+        this.userRepository = userRepository;
         this.messageRepository = messageRepository;
     }
 
-    @MessageMapping("/chat.sendMessage")
-    @SendTo("/topic/public")
-    public Message sendMessage(Message chatMessage) {
-        // Save message to database
-        messageRepository.save(chatMessage);
+    // Get or create a conversation between two users
+    @GetMapping("/conversations")
+    public ResponseEntity<Conversation> getConversationBetweenUsers(
+            @RequestParam String user1,
+            @RequestParam String user2) {
 
-        return chatMessage;
-    }
+        Logger logger = Logger.getLogger(ChatController.class.getName());
 
-    @MessageMapping("/chat.addUser")
-    @SendTo("/topic/public")
-    public Message addUser(Message chatMessage) {
-        chatMessage.setType(Message.MessageType.JOIN);
-        // Save message to database
-        messageRepository.save(chatMessage);
+        System.out.println(user1  + " "  + user2);
 
-        return chatMessage;
-    }
+        Optional<User> user1Opt = Optional.ofNullable(userRepository.findByUsername(user1));
+        Optional<User> user2Opt = Optional.ofNullable(userRepository.findByUsername(user2));
+        System.out.println(user1Opt.isPresent()  + " "  + user2Opt.isPresent());
 
-    // Endpoint to fetch only 'CHAT' messages
-    @RestController
-    public class MessageController {
-
-        private final MessageRepository messageRepository;
-
-        public MessageController(MessageRepository messageRepository) {
-            this.messageRepository = messageRepository;
+        if (user1Opt.isEmpty() || user2Opt.isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
         }
 
-        @GetMapping("/api/messages/chat")
-        public List<Message> getMessages() {
-            return messageRepository.findByType(Message.MessageType.CHAT);
+        User userOne = user1Opt.get();
+        User userTwo = user2Opt.get();
+
+        Optional<Conversation> existingConversation = conversationRepository.findByUsers(userOne, userTwo);
+
+        if (existingConversation.isPresent()) {
+            return ResponseEntity.ok(existingConversation.get());
         }
+
+        Conversation conversation = new Conversation();
+        conversation.setName("Private conversation between " + userOne.getUsername() + " and " + userTwo.getUsername());
+        conversation.getUsers().add(userOne);
+        conversation.getUsers().add(userTwo);
+
+        Conversation savedConversation = conversationRepository.save(conversation);
+        return ResponseEntity.ok(savedConversation);
     }
+
+    // Get all messages for a specific conversation
+    @GetMapping("/conversations/{conversationId}/messages")
+    public ResponseEntity<List<Message>> getMessagesForConversation(
+            @PathVariable Long conversationId) {
+        Optional<Conversation> conversation = conversationRepository.findById(conversationId);
+
+        if (conversation.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<Message> messages = messageRepository.findByConversationId(conversationId);
+        return ResponseEntity.ok(messages);
+    }
+
+    // Send a message to a specific conversation
+    @PostMapping("/conversations/{conversationId}/messages")
+    public ResponseEntity<Message> sendMessage(
+            @PathVariable Long conversationId,
+            @RequestBody Message message) {
+        Optional<Conversation> conversation = conversationRepository.findById(conversationId);
+
+        if (conversation.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        message.setConversation(conversation.get());
+        Message savedMessage = messageRepository.save(message);
+        return ResponseEntity.ok(savedMessage);
+    }
+
+    // Get a specific conversation by ID
+    @GetMapping("/conversations/{conversationId}")
+    public ResponseEntity<Conversation> getConversation(@PathVariable Long conversationId) {
+        Optional<Conversation> conversation = conversationRepository.findById(conversationId);
+        return conversation
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+    @GetMapping("/api/users/by-username/{username}")
+    public ResponseEntity<Long> getUserId(@PathVariable String username) {
+        System.out.println("Looking up user ID for username: " + username);
+        Long userId = userRepository.findIdByUsername(username);
+        if (userId == null) {
+            System.out.println("No user found with username: " + username);
+            return ResponseEntity.notFound().build();
+        }
+        System.out.println("Found user ID: " + userId);
+        return ResponseEntity.ok(userId);
+    }
+
 }
