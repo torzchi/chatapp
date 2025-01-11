@@ -1,6 +1,7 @@
 package com.example.chatapp.controller;
 
 import com.example.chatapp.model.Conversation;
+import com.example.chatapp.model.CreateConversationRequest;
 import com.example.chatapp.model.Message;
 import com.example.chatapp.model.User;
 import com.example.chatapp.repository.ConversationRepository;
@@ -12,7 +13,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -32,7 +35,7 @@ public class ChatController {
     }
 
     // Get or create a conversation between two users
-    @GetMapping("/conversations")
+    @GetMapping("/conversationsp")
     public ResponseEntity<Conversation> getConversationBetweenUsers(
             @RequestParam String user1,
             @RequestParam String user2) {
@@ -115,6 +118,39 @@ public class ChatController {
         }
         System.out.println("Found user ID: " + userId);
         return ResponseEntity.ok(userId);
+    }
+    @GetMapping("/users/{userId}/conversations")
+    public ResponseEntity<List<Conversation>> getUserConversations(@PathVariable Long userId) {
+        Optional<User> user = userRepository.findById(userId);
+        if (user.isPresent()) {
+            List<Conversation> conversations = conversationRepository.findByUsersContaining(user.get());
+            return ResponseEntity.ok(conversations);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/conversations")
+    public ResponseEntity<Conversation> createConversation(@RequestBody CreateConversationRequest request) {
+        Set<User> users = request.getUserIds().stream()
+                .map(userRepository::findById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toSet());
+
+        if (users.size() < 2) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Conversation conversation = new Conversation();
+        conversation.setUsers(users);
+
+        // Set conversation name based on participants if not provided
+        String conversationName = users.stream()
+                .map(User::getUsername)
+                .collect(Collectors.joining(", "));
+        conversation.setName(conversationName);
+
+        return ResponseEntity.ok(conversationRepository.save(conversation));
     }
 
 

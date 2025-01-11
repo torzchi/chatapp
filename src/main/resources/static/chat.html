@@ -14,6 +14,7 @@
 </div>
 
 <div id="chatContainer" style="display:none;">
+  <div id="chatTitle"></div>
   <div id="chatArea"></div>
   <div class="input-container">
     <input type="text" id="messageInput" placeholder="Type a message..."/>
@@ -97,6 +98,7 @@
   async function startConversation(selectedUsername) {
     try {
         // Clear previous chat messages
+        document.getElementById("chatTitle").textContent = `Chat with ${selectedUsername}`; // Set the title
         document.getElementById("chatArea").innerHTML = '';
 
         const response = await fetch(`/api/conversations?user1=${username}&user2=${selectedUsername}`);
@@ -157,34 +159,43 @@ window.addEventListener('beforeunload', () => {
     }
   }
 
-  // Display messages in the chat area
-  function displayMessages(messages) {
+ function displayMessages(messages) {
     const chatArea = document.getElementById("chatArea");
-    chatArea.innerHTML = '';
-    messages.forEach(appendMessage);
-  }
+    chatArea.innerHTML = ''; // Curăță zona de chat înainte de a afișa mesajele noi
 
-  // Append a single message to the chat area
-  function appendMessage(message) {
-    const chatArea = document.getElementById("chatArea");
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message';
-
-    // Properly handle sender information
-    let senderName;
-    if (message.sender && message.sender.username) {
-        senderName = message.sender.username;
-    } else if (message.senderId === currentUserId) {
-        senderName = username; // Use the current user's username if it's their message
+    if (messages && messages.length > 0) { // Verificare suplimentară
+        messages.forEach(message => appendMessage(message));
     } else {
-        senderName = "Unknown";
+        // Opțional: Afișează un mesaj dacă nu există mesaje
+        const noMessagesDiv = document.createElement('div');
+        noMessagesDiv.textContent = "Nu există mesaje în această conversație.";
+        chatArea.appendChild(noMessagesDiv);
     }
 
+}
+
+// Append a single message to the chat area
+function appendMessage(message) {
+    const chatArea = document.getElementById("chatArea");
+    const messageDiv = document.createElement('div');
+
+    if (!message || !message.sender || !message.sender.id) {
+        console.error("Mesaj invalid:", message); // Logare pentru debug
+        return; // Ieșire din funcție dacă mesajul este invalid
+    }
+
+    const isCurrentUser = message.sender.id === currentUserId;
+    messageDiv.className = isCurrentUser ? 'message current-user' : 'message other-user';
+
+    const senderName = isCurrentUser ? "You" : message.sender.username || "Unknown";
     const formattedTimestamp = formatTimestamp(message.timestamp);
 
     messageDiv.innerHTML = `
-        <strong>${senderName}</strong>: ${message.content}
-        <span class="timestamp">${formattedTimestamp}</span>
+        <div class="message-content">
+            ${!isCurrentUser ? `<strong class="sender-name">${senderName}</strong>` : ""}
+            <p>${message.content}</p>
+            <span class="timestamp">${formattedTimestamp}</span>
+        </div>
     `;
 
     chatArea.appendChild(messageDiv);
@@ -249,6 +260,38 @@ function formatTimestamp(timestamp) {
                 console.error('Error fetching conversations:', error);
             }
         }
+        async function selectConversation(conversation) {
+    try {
+        // Clear previous chat messages
+        document.getElementById("chatArea").innerHTML = '';
+
+        // Update current conversation ID
+        currentConversationId = conversation.id;
+
+        const otherParticipants = conversation.users
+        .filter(user => user.id !== currentUserId)
+        .map(user => user.username)
+        .join(', ');
+    document.getElementById("chatTitle").textContent = `Chat with ${otherParticipants}`; // Set the title
+
+        // Show chat container
+        document.getElementById("chatContainer").style.display = "block";
+
+        // Update active conversation in sidebar
+        const conversationItems = document.querySelectorAll('.conversation-item');
+        conversationItems.forEach(item => item.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+
+        // First fetch existing messages, then subscribe to new ones
+        if (currentConversationId) {
+            await fetchMessages(currentConversationId);
+            subscribeToConversation(currentConversationId);
+        }
+    } catch (error) {
+        console.error('Error selecting conversation:', error);
+    }
+}
+
          function displayConversations(conversations) {
             const userList = document.getElementById('userList');
             userList.innerHTML = '';
