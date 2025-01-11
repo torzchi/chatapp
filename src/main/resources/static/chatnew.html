@@ -8,28 +8,18 @@
 </head>
 <body>
 <div id="userListContainer">
-  <h3>Conversations</h3>
-  <button id="createChatButton">Create New Chat</button>
+  <h3>Users</h3>
   <ul id="userList"></ul>
 </div>
 
 <div id="chatContainer" style="display:none;">
   <div id="chatArea"></div>
-  <div class="input-container">
-    <input type="text" id="messageInput" placeholder="Type a message..."/>
-    <button id="sendButton">Send</button>
-  </div>
+  <input type="text" id="messageInput" placeholder="Type a message..."/>
+  <button onclick="sendMessage()">Send</button>
 </div>
 
-<div id="createChatModal" class="modal">
-  <div class="modal-content">
-    <h3>Create New Conversation</h3>
-    <div class="user-select-list" id="userSelectList"></div>
-    <div class="modal-buttons">
-      <button class="modal-button secondary" onclick="closeModal()">Cancel</button>
-      <button class="modal-button primary" onclick="createNewConversation()">Create</button>
-    </div>
-  </div>
+<div id="loadingContainer">
+  <p>Loading chat...</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
@@ -231,120 +221,24 @@ function formatTimestamp(timestamp) {
         messageInput.value = '';
     }
 }
- function setupEventListeners() {
-            document.getElementById('createChatButton').addEventListener('click', showCreateChatModal);
-            document.getElementById('messageInput').addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-                    sendMessage();
-                }
-            });
-            document.getElementById('sendButton').addEventListener('click', sendMessage);
-        }
-         async function fetchConversations() {
-            try {
-                const response = await fetch(`/api/users/${currentUserId}/conversations`);
-                const conversations = await response.json();
-                displayConversations(conversations);
-            } catch (error) {
-                console.error('Error fetching conversations:', error);
-            }
-        }
-         function displayConversations(conversations) {
-            const userList = document.getElementById('userList');
-            userList.innerHTML = '';
-
-            conversations.forEach(conversation => {
-                const li = document.createElement('li');
-                li.className = 'conversation-item';
-                li.onclick = () => selectConversation(conversation);
-
-                // Get other participants' names for display
-                const otherParticipants = conversation.users
-                    .filter(user => user.id !== currentUserId)
-                    .map(user => user.username)
-                    .join(', ');
-
-                li.textContent = conversation.name || otherParticipants;
-                userList.appendChild(li);
-            });
-        }
-          async function showCreateChatModal() {
-            const modal = document.getElementById('createChatModal');
-            const userSelectList = document.getElementById('userSelectList');
-            userSelectList.innerHTML = '';
-
-            try {
-                const response = await fetch('/api/users');
-                const users = await response.json();
-
-                users.forEach(user => {
-                    if (user.id !== currentUserId) {
-                        const div = document.createElement('div');
-                        div.className = 'user-select-item';
-                        div.innerHTML = `
-                            <input type="checkbox" id="user-${user.id}" value="${user.id}">
-                            <label for="user-${user.id}">${user.username}</label>
-                        `;
-                        userSelectList.appendChild(div);
-                    }
-                });
-
-                modal.style.display = 'block';
-            } catch (error) {
-                console.error('Error fetching users:', error);
-            }
-        }
-
-        // Close create chat modal
-        function closeModal() {
-            document.getElementById('createChatModal').style.display = 'none';
-        }
-
-        // Create new conversation
-        async function createNewConversation() {
-            const selectedUsers = Array.from(document.querySelectorAll('#userSelectList input[type="checkbox"]:checked'))
-                .map(checkbox => parseInt(checkbox.value));
-
-            if (selectedUsers.length === 0) {
-                alert('Please select at least one user');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/conversations', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        userIds: [...selectedUsers, currentUserId]
-                    })
-                });
-
-                if (response.ok) {
-                    const conversation = await response.json();
-                    closeModal();
-                    await fetchConversations();
-                    selectConversation(conversation);
-                }
-            } catch (error) {
-                console.error('Error creating conversation:', error);
-            }
-        }
 
   // Initialize the app
-   async function initApp() {
-            try {
-                connectWebSocket();
-                const currentUser = await fetchCurrentUser();
-                if (currentUser) {
-                    await fetchConversations();
-                    setupEventListeners();
-                }
-            } catch (error) {
-                console.error('Error initializing app:', error);
-            }
-        }
+  async function initApp() {
+    try {
+      connectWebSocket();
+
+      const currentUser = await fetchCurrentUser();
+      if (currentUser) {
+        document.getElementById("loadingContainer").style.display = "none";
+        await fetchUsers();
+      } else {
+        document.getElementById("loadingContainer").innerHTML = '<p>Error loading chat. Please try again.</p>';
+      }
+    } catch (error) {
+      console.error('Error initializing app:', error);
+      document.getElementById("loadingContainer").innerHTML = '<p>Error loading chat. Please try again.</p>';
+    }
+  }
 
   // Add event listener for Enter key in message input
   document.getElementById("messageInput").addEventListener("keypress", function(event) {
