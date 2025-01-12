@@ -17,7 +17,7 @@ public class Conversation {
 
     private String name;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_conversation",
             joinColumns = @JoinColumn(name = "conversation_id"),

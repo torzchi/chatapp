@@ -28,4 +28,12 @@ public class ConversationService {
         }
         return conversationRepository.findAllByUsersContaining(user);
     }
+    public List<Conversation> getUserConversations(Long userId) {
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+        // Ensure the conversations are initialized
+        conversations.forEach(conversation -> {
+            conversation.getUsers().size(); // Force initialization of the users collection
+        });
+        return conversations;
+    }
 }

@@ -35,40 +35,6 @@ public class ChatController {
     }
 
     // Get or create a conversation between two users
-    @GetMapping("/conversationsp")
-    public ResponseEntity<Conversation> getConversationBetweenUsers(
-            @RequestParam String user1,
-            @RequestParam String user2) {
-
-        Logger logger = Logger.getLogger(ChatController.class.getName());
-
-        System.out.println(user1  + " "  + user2);
-
-        Optional<User> user1Opt = Optional.ofNullable(userRepository.findByUsername(user1));
-        Optional<User> user2Opt = Optional.ofNullable(userRepository.findByUsername(user2));
-        System.out.println(user1Opt.isPresent()  + " "  + user2Opt.isPresent());
-
-        if (user1Opt.isEmpty() || user2Opt.isEmpty()) {
-            return ResponseEntity.badRequest().body(null);
-        }
-
-        User userOne = user1Opt.get();
-        User userTwo = user2Opt.get();
-
-        Optional<Conversation> existingConversation = conversationRepository.findByUsers(userOne, userTwo);
-
-        if (existingConversation.isPresent()) {
-            return ResponseEntity.ok(existingConversation.get());
-        }
-
-        Conversation conversation = new Conversation();
-        conversation.setName("Private conversation between " + userOne.getUsername() + " and " + userTwo.getUsername());
-        conversation.getUsers().add(userOne);
-        conversation.getUsers().add(userTwo);
-
-        Conversation savedConversation = conversationRepository.save(conversation);
-        return ResponseEntity.ok(savedConversation);
-    }
 
     // Get all messages for a specific conversation
     @GetMapping("/conversations/{conversationId}/messages")
@@ -129,6 +95,9 @@ public class ChatController {
         return ResponseEntity.notFound().build();
     }
 
+
+
+
     @PostMapping("/conversations")
     public ResponseEntity<Conversation> createConversation(@RequestBody CreateConversationRequest request) {
         Set<User> users = request.getUserIds().stream()
@@ -138,20 +107,33 @@ public class ChatController {
                 .collect(Collectors.toSet());
 
         if (users.size() < 2) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().build(); // Ensure at least two participants
+        }
+
+
+        // Check for existing conversation with the same users
+        List<Conversation> existingConversations = conversationRepository.findConversationsWithExactUsers(users, users.size());
+        if (!existingConversations.isEmpty()) {
+            return ResponseEntity.ok(existingConversations.get(0));
         }
 
         Conversation conversation = new Conversation();
         conversation.setUsers(users);
 
-        // Set conversation name based on participants if not provided
+
+
+        // Generate a fallback name if no explicit name is provided
         String conversationName = users.stream()
                 .map(User::getUsername)
                 .collect(Collectors.joining(", "));
         conversation.setName(conversationName);
 
+        System.out.println("Users in conversation: " + users); // Log participants
+        System.out.println("Conversation saved: " + conversation); // Log saved conversation
+
         return ResponseEntity.ok(conversationRepository.save(conversation));
     }
+
 
 
 }

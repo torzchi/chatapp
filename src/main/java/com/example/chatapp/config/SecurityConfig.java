@@ -23,11 +23,23 @@ public class SecurityConfig {
                         .loginPage("/login") // Static login page
                         .defaultSuccessUrl("/chat.html", true) // Redirect after successful login
                         .failureUrl("/login?error=true") // Redirect here on login failure
+                )
+                .rememberMe(rememberMe -> rememberMe
+                        .key("uniqueAndSecret") // A secret key used to sign remember-me cookies
+                        .tokenValiditySeconds(7 * 24 * 60 * 60) // Cookie validity: 7 days
+                        .rememberMeParameter("remember-me") // Name of the checkbox in your form
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?logout")
+                        .deleteCookies("JSESSIONID", "remember-me") // Clear session and remember-me cookies
                 );
+
 
         return http.build();
     }
 
+    
 
 
     @Bean
