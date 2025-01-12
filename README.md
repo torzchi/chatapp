@@ -1,3 +1,4 @@
+# Documentatie Completa in DocumentatieChatapp.pdf
 # Chat Application
 
 Aplicatie de mesagerie in real-time implementata folosing Websockets-uri ca mod principal de comunicare si framework-ul SpringBoot impreuna cu toate facilitatile acestuia. 
@@ -40,17 +41,4 @@ Aplicatie de mesagerie in real-time implementata folosing Websockets-uri ca mod 
 
 ```plaintext
 Client <-> WebSocket <-> Server <-> Database
-```
-
-## API Endpoints
-| Endpoint                 | Metodă  | Descriere                                   |
-|--------------------------|---------|---------------------------------------------|
-| `/register`              | `POST`  | Înregistrează un utilizator nou.            |
-| `/login`                 | `POST`  | Autentifică utilizatorul și returnează JWT. |
-| `/chat.addUser`         | `GET`   | Adauga/Marcheaza utilizator in chatroom.    |
-| `/chat.sendMessage`     | `GET`   | Trimite un mesaj în chat.                   |
-
-## User Flow
-```
- Pagina Principala -> Creeare cont -> Log in -> Redirectionare chat public -> Selectie conversatie -> Trimitere mesaje
 ```
